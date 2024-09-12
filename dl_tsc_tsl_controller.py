@@ -31,35 +31,59 @@ class StepOneController:
 
     def handle_complete(self, stream, downloaded_file_path):
         self.view.update_lbl_msg(f"✓ Video Downloaded!")
-        self.view.update_tsc_lbl_msg(downloaded_file_path)
+        print(stream)
+        if stream.includes_video_track:
+            print(self.view.get_tsc_msg_v())
+            self.view.update_tsc_msg_v(downloaded_file_path)
+        else:
+            print(self.view.get_tsc_lbl_msg())
+            self.view.update_tsc_lbl_msg(downloaded_file_path)
         self.view.update_btn_state("normal")
 
     def download(self, vid):
         os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 
-        if len(vid) > 0 and DOMAIN_NAME in vid:
-            self.view.update_btn_state("disabled")
+        # if len(vid) > 0 and DOMAIN_NAME in vid:
+        self.view.update_btn_state("disabled")
 
-            self.view.update_pb_progress(0.0)
+        self.view.update_pb_progress(0.0)
 
-            try:
-                yt_obj = YouTube(vid)
-            except exceptions.VideoUnavailable:
-                self.view.update_lbl_msg(
-                    f'Video {vid} is unavaialable, skipping.')
-            else:
-                print(f'Downloading video: {vid}')
-                yt_obj.register_on_progress_callback(self.handle_progress)
-                yt_obj.register_on_complete_callback(self.handle_complete)
-
-                filters = yt_obj.streams.filter(
-                    progressive=True, file_extension='mp4')
-
-                # download the highest quality video
-                filters.get_highest_resolution().download(
-                    output_path=DOWNLOAD_PATH, skip_existing=False)
+        try:
+            yt_obj = YouTube(vid)
+        except exceptions.VideoUnavailable:
+            self.view.update_lbl_msg(
+                f'Video {vid} is unavaialable, skipping.')
         else:
-            self.view.update_lbl_msg("URL is not valid.")
+            print(f'Downloading video: {vid}')
+            yt_obj.register_on_progress_callback(self.handle_progress)
+            yt_obj.register_on_complete_callback(self.handle_complete)
+
+            video_stream = yt_obj.streams.filter(
+                adaptive=True, file_extension="mp4", only_video=True, res="1080p").first()
+            if video_stream == None:
+                video_stream = yt_obj.streams.filter(
+                    adaptive=True, file_extension="mp4", only_video=True, res="720p").first()
+            if video_stream == None:
+                video_stream = yt_obj.streams.filter(
+                    adaptive=True, file_extension="mp4", only_video=True, res="480p").first()
+
+            audio_stream = yt_obj.streams.filter(
+                adaptive=True, only_audio=True, mime_type="audio/mp4", abr="128kbps").first()
+            if audio_stream == None:
+                audio_stream = yt_obj.streams.filter(
+                    adaptive=True, only_audio=True, mime_type="audio/mp4", abr="48kbps").first()
+
+            if video_stream != None and audio_stream != None:
+                video_stream.download(
+                    output_path=DOWNLOAD_PATH, filename=f"{filename(video_stream.default_filename)}.mp4", skip_existing=False)
+                audio_stream.download(
+                    output_path=DOWNLOAD_PATH, filename=f"{filename(audio_stream.default_filename)}.wav", skip_existing=False)
+            else:
+                self.view.update_lbl_msg(
+                    "Streams are not available.")
+                self.view.update_btn_state("normal")
+        # else:
+        #     self.view.update_lbl_msg("URL is not valid.")
 
     def get_audio(self, path):
         temp_dir = tempfile.gettempdir()
@@ -78,15 +102,17 @@ class StepOneController:
         return audio_paths
 
     def tsc(self, downloaded_path):
-        audio = self.get_audio(downloaded_path)
-        self.view.update_tsc_lbl_msg("Audio file extracted...")
+        # audio = self.get_audio(downloaded_path)
+        # self.view.update_tsc_lbl_msg("Audio file extracted...")
 
         os.makedirs(OUTPUT_PATH, exist_ok=True)
         model = whisper.load_model("medium")
 
-        path = list(audio.keys())[0]
-        audio_path = audio[path]
-        srt_path = os.path.join(OUTPUT_PATH, f"{filename(path)}.srt")
+        # path = list(audio.keys())[0]
+        # audio_path = audio[path]
+        audio_path = downloaded_path
+        srt_path = os.path.join(
+            OUTPUT_PATH, f"{filename(downloaded_path)}.srt")
 
         self.view.update_tsc_lbl_msg(f"Generating subtitles...")
         result = model.transcribe(audio_path)
@@ -114,6 +140,8 @@ class StepOneController:
 
     def atc(self, v_path):
         sub_file_path = os.path.join(OUTPUT_PATH, f"{filename(v_path)}_t.srt")
+        audio_file_path = os.path.join(
+            DOWNLOAD_PATH, f"{filename(v_path)}.wav")
         print(f"{v_path} /n")
         print(sub_file_path)
         dt_str = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -125,7 +153,7 @@ class StepOneController:
             f"Adding subtitles to {filename(v_path)}...")
 
         video = ffmpeg.input(v_path)
-        audio = video.audio
+        audio = ffmpeg.input(audio_file_path)
 
         # v4+ (ASS) Style Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
         ffmpeg.concat(

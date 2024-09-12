@@ -36,6 +36,7 @@ class StepOneView(tk.Frame):
 
         # transcribe message label
         self.tsc_msg_var = tk.StringVar()
+        self.tsc_msg_var_v = tk.StringVar()
         self.tsc_msg_var.set("-")
         self.tsc_msg_lbl = tk.Label(
             self, textvariable=self.tsc_msg_var, font="Consolas 10")
@@ -93,6 +94,12 @@ class StepOneView(tk.Frame):
 
     def get_tsc_lbl_msg(self):
         return self.tsc_msg_var.get()
+    
+    def update_tsc_msg_v(self, msg):
+        self.tsc_msg_var_v.set(msg)
+
+    def get_tsc_msg_v(self):
+        return self.tsc_msg_var_v.get()
 
     def update_tsl_lbl_msg(self, msg):
         self.tsl_msg_var.set(msg)

@@ -25,7 +25,8 @@ def line_tt(transcript_line, bw_data: str, fw_data: str, language: str):
             {"role": "assistant", "content": "今天要稍微改变一下，给你们展示一下在这里训练的样子"},
             {"role": "user", "content": f"Translate the following text into {language}: \n {refinedSegment} "},
             {"role": "user", "content": f"Above sentence is within the following context, do consider it for your translation: \n {bw_data} \n {refinedSegment} \n {fw_data} "},
-            {"role": "user", "content": f"Remove the duplicated content in the context. Only keep the translation for the current sentence."}
+            {"role": "user", "content": f"Make the translation as short as possible."},
+            {"role": "user", "content": f"Remove the duplicated translation appeared in the context. Only keep the translation for the current sentence."}
         ],
         temperature=0.5
     )
